@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.4.3
+
+### 修复
+
+- 修复「认证文件」页面下方「账号用量与并发」卡片（`#team-runtime-*`）：补全 `.auth-file-card` 卡片网格样式、选中边框色变量与自定义复选框控件包装；修正分类筛选大小写归一化比较，以及后端 `getAccountRuntime` / `enforceAccountRuntime` 对缺失 `ID`（仅有 `AuthIndex`）认证文件的回退兼容与 `api_key` 排除逻辑。
+
 ## v1.4.2
 
 ### 修复

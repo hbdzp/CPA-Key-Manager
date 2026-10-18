@@ -6,7 +6,7 @@
       "name": "API Key 计费与团队管理",
       "description": "下游 API Key 计费、团队分组三态号池（普通/独占/公共）、分模型订阅额度与上游单账号并发管理插件。",
       "author": "hbdzp",
-      "version": "1.4.2",
+      "version": "1.4.3",
       "repository": "https://github.com/hbdzp/CPA-Key-Manager",
       "homepage": "https://github.com/hbdzp/CPA-Key-Manager",
       "license": "MIT",

@@ -419,13 +419,17 @@ func (a *App) getAccountRuntime(_ ManagementRequest) ManagementResponse {
 	a.accountRuntime.mu.Unlock()
 	seen := map[string]bool{}
 	for _, f := range files {
-		if f.ID == "" || f.AuthIndex == "" {
+		if strings.TrimSpace(f.AuthIndex) == "" || strings.EqualFold(strings.TrimSpace(f.AccountType), "api_key") {
 			continue
 		}
-		ref := billing.CredentialFingerprint(f.ID)
-		provider := f.Provider
+		rawID := strings.TrimSpace(f.ID)
+		if rawID == "" {
+			rawID = strings.TrimSpace(f.AuthIndex)
+		}
+		ref := billing.CredentialFingerprint(rawID)
+		provider := strings.ToLower(strings.TrimSpace(f.Provider))
 		if provider == "" {
-			provider = f.Type
+			provider = strings.ToLower(strings.TrimSpace(f.Type))
 		}
 		u := byIndex[f.AuthIndex]
 		u.AuthIndex = f.AuthIndex
@@ -499,6 +503,9 @@ func (a *App) enforceAccountRuntime(req RequestInterceptRequest) RequestIntercep
 		return RequestInterceptResponse{}
 	}
 	id := metadataString(req.Metadata, MetadataSelectedAuth)
+	if id == "" {
+		id = metadataString(req.Metadata, MetadataSelectedIndex)
+	}
 	if id == "" {
 		if a.accountRuntime.hasConcurrencyLimits() {
 			return priceRefusal(req.SourceFormat, "account_identity_required", "Cannot verify the selected account; configured account concurrency limits cannot be enforced")

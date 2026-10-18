@@ -623,6 +623,7 @@ tbody tr:hover { background: var(--bg-hover); }
   background: var(--app-surface-strong, var(--bg-primary));
 }
 :root[data-cpamp-plugin-host="true"] .account-model-card,
+:root[data-cpamp-plugin-host="true"] .auth-file-card,
 :root[data-cpamp-plugin-host="true"] .inset-card,
 :root[data-cpamp-plugin-host="true"] .price-reference-option {
   border-color: var(--border-subtle, var(--app-border));
@@ -704,7 +705,7 @@ tbody tr:hover { background: var(--bg-hover); }
 .quota-fill.medium { background: var(--quota-medium-color); }
 .quota-fill.low { background: var(--quota-low-color); }
 @media (prefers-reduced-motion: reduce) {
-  body, button, input, select, textarea, .quota-fill, .account-model-card, .lucide-chevron-icon { transition: none; }
+  body, button, input, select, textarea, .quota-fill, .account-model-card, .auth-file-card, .lucide-chevron-icon { transition: none; }
 }
 .concurrency-editor { display: flex; align-items: center; gap: 7px; min-width: 172px; }
 .concurrency-editor .native-select, .concurrency-editor select { width: 96px; min-width: 96px; }
@@ -982,12 +983,21 @@ details[open] > .details-summary .lucide-chevron-icon, .routing-section-toggle[a
   transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease;
 }
 @media (hover: hover) {
-  .account-model-card:hover {
+  .account-model-card:hover, .auth-file-card:hover {
     transform: translateY(-2px);
     border-color: var(--border-hover);
     background: color-mix(in srgb, var(--bg-secondary) 92%, var(--primary-color));
     box-shadow: 0 7px 18px color-mix(in srgb, var(--text-primary) 10%, transparent);
   }
+}
+.auth-file-card {
+  height: 100%;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease;
 }
 .account-model-name {
   display: block;
@@ -2317,11 +2327,11 @@ dialog.drawer[open] { display: flex; flex-direction: column; }
 }
 .team-account-name { min-width: 0; overflow-wrap: anywhere; }
 .team-account-select { display: flex; align-items: flex-start; gap: 8px; min-width: 0; cursor: pointer; }
-.team-account-select input { flex: none; margin-top: 3px; }
+.team-account-select > .checkbox-control, .team-account-select > input { flex: none; margin-top: 2px; }
 .team-account-bulk { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin: 16px 0 8px; }
 .team-account-bulk .field { margin: 0; flex: 1 1 180px; max-width: 300px; }
 .team-account-bulk input[type="number"] { width: 100%; }
-.auth-file-card.is-selected { border-color: var(--accent); }
+.auth-file-card.is-selected { border-color: var(--primary-color); }
 .team-account-usage { display: flex; flex-wrap: wrap; gap: 8px 14px; font-size: 12px; margin: 12px 0; }
 .team-account-concurrency { display: flex; gap: 10px; align-items: flex-end; margin: 14px 0 8px; }
 .team-account-concurrency .field { flex: 1; margin: 0; min-width: 0; }

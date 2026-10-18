@@ -246,3 +246,27 @@ func TestCredentialRotationMergesBothAlreadyActivePools(t *testing.T) {
 		t.Fatal("merged pool never released")
 	}
 }
+
+func TestAccountRuntimeNormalizesProviderAndFallsBackToAuthIndex(t *testing.T) {
+	a := newConfiguredApp(t)
+	a.SetHostCaller(func(string, any) (json.RawMessage, error) {
+		return mustMarshal(t, hostAuthListResponse{Files: []hostAuthFile{
+			{ID: "", AuthIndex: "idx-no-id", Name: "claude-team.json", Provider: "Claude", Type: "claude", Email: "team@example.com"},
+			{ID: "apikey-file", AuthIndex: "idx-apikey", Name: "apikey.json", Provider: "codex", Type: "codex", AccountType: "api_key"},
+		}}), nil
+	})
+	var response struct {
+		Accounts []struct {
+			Ref      string `json:"credential_ref"`
+			Index    string `json:"auth_index"`
+			Provider string `json:"provider"`
+		} `json:"accounts"`
+	}
+	if err := json.Unmarshal(a.getAccountRuntime(ManagementRequest{}).Body, &response); err != nil {
+		t.Fatal(err)
+	}
+	if len(response.Accounts) != 1 || response.Accounts[0].Ref != billing.CredentialFingerprint("idx-no-id") || response.Accounts[0].Provider != "claude" {
+		t.Fatalf("unexpected runtime accounts: %+v", response.Accounts)
+	}
+}
+

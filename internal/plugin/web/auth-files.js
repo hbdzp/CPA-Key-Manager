@@ -633,7 +633,7 @@ function teamAccountRows(filtered = true) {
     return (
       provider && provider !== "unknown" &&
       (!filtered ||
-        ((!$("auth-enabled-only").checked || !item.disabled) && (!category || item.provider === category) &&
+        ((!$("auth-enabled-only").checked || !item.disabled) && (!category || provider === category) &&
           matchesTerm([item.name, item.provider, item.auth_index].join(" "), search)))
     );
   });
@@ -787,17 +787,19 @@ function renderTeamAccountRuntime() {
           el(
             "label",
             { class: "team-account-select" },
-            el("input", {
-              type: "checkbox",
-              "data-runtime-select": item.credential_ref || "",
-              checked: teamAccountSelection().has(item.credential_ref),
-              disabled: busy || !item.credential_ref,
-              "aria-label": m("ui.model_test_select_account", { account: name }),
-              onchange: (event) => {
-                if (event.target.checked) teamAccountSelection().add(item.credential_ref);
-                else teamAccountSelection().delete(item.credential_ref);
-                renderTeamAccountSelection();
-              }
+            checkboxControl({
+              input: el("input", {
+                type: "checkbox",
+                "data-runtime-select": item.credential_ref || "",
+                checked: teamAccountSelection().has(item.credential_ref),
+                disabled: busy || !item.credential_ref,
+                "aria-label": m("ui.model_test_select_account", { account: name }),
+                onchange: (event) => {
+                  if (event.target.checked) teamAccountSelection().add(item.credential_ref);
+                  else teamAccountSelection().delete(item.credential_ref);
+                  renderTeamAccountSelection();
+                }
+              })
             }),
             el("strong", { class: "team-account-name", text: name })
           ),
