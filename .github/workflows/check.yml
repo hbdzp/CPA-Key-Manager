@@ -1,0 +1,105 @@
+name: Check
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+  workflow_call:
+    inputs:
+      checkout_ref:
+        description: Git ref to check out instead of the triggering ref.
+        required: false
+        default: ""
+        type: string
+      release_tag:
+        description: Release tag to compare with the plugin version.
+        required: false
+        default: ""
+        type: string
+      verify_release_version:
+        description: Verify that the release tag matches the plugin version.
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Test, vet, and lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.checkout_ref || github.ref }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Check formatting
+        run: |
+          gofmt -l . | tee /tmp/gofmt-files
+          test ! -s /tmp/gofmt-files
+
+      - name: Check module files
+        run: go mod tidy -diff
+
+      - name: Verify release version
+        if: inputs.verify_release_version
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+        run: |
+          version="$(awk -F'"' '/^[[:space:]]*Version[[:space:]]*=/ {print $2; exit}' internal/plugin/types.go)"
+          test -n "$version"
+          test "$RELEASE_TAG" = "v$version"
+
+      - name: Check GitHub Actions workflows
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+        env:
+          GOTOOLCHAIN: auto
+
+      - name: Check Windows installer syntax
+        if: hashFiles('install.ps1') != ''
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path install.ps1),
+            [ref]$tokens,
+            [ref]$errors
+          ) | Out-Null
+          if ($errors.Count -ne 0) {
+            $errors | ForEach-Object { Write-Error $_ }
+            exit 1
+          }
+
+      - name: Run tests
+        run: go test -race ./...
+
+      - name: Run vet
+        run: go vet ./...
+
+      - name: Check embedded UI JavaScript
+        run: |
+          for ui_script in internal/plugin/web/*.js; do
+            node --check "$ui_script"
+          done
+
+      - name: Check UI formatting and translations
+        run: |
+          npm ci --prefix scripts
+          npm test --prefix scripts
+          node scripts/format_ui.mjs --check
