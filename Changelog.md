@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.4.2
+
+### 修复
+
+- 修复管理端「API Key 分组」弹窗（`#group-dialog`）、API Key 组选择器（`#group-picker`）、访问控制双开关、组内账号实时运行态（`/account-runtime`）及「认证文件」页单账号并发控制卡片（`#team-runtime-*`）的前端 DOM 绑定、请求载荷与 `pinSelected` 缓存初始化（`Map`），解决打开新建分组或切换认证文件页时报错的问题。
+
 ## v1.4.1
 
 ### 升级与标识说明
