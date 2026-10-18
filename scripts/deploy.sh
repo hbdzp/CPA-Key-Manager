@@ -12,7 +12,7 @@ chmod 600 .env
 : "${CPA_BASE_URL:?Set CPA_BASE_URL in .env}"
 : "${CPA_MANAGEMENT_PASSWORD:?Set CPA_MANAGEMENT_PASSWORD in .env}"
 
-id=cpa-key-billing
+id=cpa-key-manager
 service=cli-proxy-api
 version=$(sed -n 's/^[[:space:]]*Version[[:space:]]*= "\(.*\)"/\1/p' internal/plugin/types.go)
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'Cannot determine the plugin version.' >&2; exit 1; }
@@ -28,7 +28,7 @@ echo "==> Building $target"
 mkdir -p dist
 ZIG_GLOBAL_CACHE_DIR="${ZIG_GLOBAL_CACHE_DIR:-$PWD/dist/.zig-cache}" \
   GOOS=linux GOARCH=amd64 CGO_ENABLED=1 CC='zig cc -target x86_64-linux-gnu.2.17' \
-  go build -trimpath -ldflags='-s -w' -tags cshared -buildmode=c-shared -o "dist/$id.so" "./cmd/$id"
+  go build -trimpath -ldflags='-s -w' -tags cshared -buildmode=c-shared -o "dist/$id.so" "./cmd/cpa-key-billing"
 sum=$(shasum -a 256 "dist/$id.so" | cut -d' ' -f1)
 echo "sha256 $sum"
 

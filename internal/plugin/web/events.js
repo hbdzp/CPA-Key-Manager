@@ -582,7 +582,7 @@ async function exportEvents(kind, account) {
     } while (result.cursor);
     const entries = result.page.entries;
     const stamp = new Date().toISOString().replaceAll(":", "-").slice(0, 19);
-    const name = "cpa-key-billing-" + (account ? "account-" : "") + view.tab + "-";
+    const name = "cpa-key-manager-" + (account ? "account-" : "") + view.tab + "-";
     downloadCSV(name + stamp + ".csv", eventCSV(entries, kind, account));
     notify(m("ui.exported_value_value_records", { v0: int(entries.length), v1: view.label }));
   } finally {

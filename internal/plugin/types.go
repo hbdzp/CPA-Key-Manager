@@ -16,12 +16,12 @@ const (
 // Plugin identity. PluginID doubles as the dynamic library file name, the
 // `plugins.configs` key, and the Management/resource route segment.
 const (
-	PluginID   = "cpa-key-billing"
-	PluginName = "cpa-key-billing"
+	PluginID   = "cpa-key-manager"
+	PluginName = "cpa-key-manager"
 	Version    = "1.4.1"
 
-	MenuLabel       = "API Key Billing"
-	MenuDescription = "Manage downstream API key routing, billing, concurrency limits, subscription quotas, and usage"
+	MenuLabel       = "API Key Manager"
+	MenuDescription = "Manage downstream API key groups, routing, billing, concurrency limits, subscription quotas, and usage"
 
 	GitHubRepository = "https://github.com/hbdzp/CPA-Key-Manager"
 )

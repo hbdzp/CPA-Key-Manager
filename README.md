@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>CPA Key Manager (cpa-key-billing)</h1>
+  <h1>CPA Key Manager (cpa-key-manager)</h1>
   <p><strong><a href="https://github.com/router-for-me/CLIProxyAPI">CLIProxyAPI</a> 下游 API Key 计费、团队分组三态号池、分模型订阅额度与单账号并发管理插件。</strong></p>
   <p>
     <a href="https://github.com/hbdzp/CPA-Key-Manager/releases/latest"><img src="https://img.shields.io/github/v/release/hbdzp/CPA-Key-Manager?label=release" alt="Latest release"></a>
@@ -9,9 +9,9 @@
   </p>
   <p><a href="./README.en.md">English</a> · <strong>简体中文</strong></p>
 </div>
-<img src="images/example.png" alt="cpa-key-billing example" width="100%" />
+<img src="images/example.png" alt="cpa-key-manager example" width="100%" />
 
-**插件 ID：`cpa-key-billing` · 商店名称：API Key 计费与团队管理 · 发布仓库：[hbdzp/CPA-Key-Manager](https://github.com/hbdzp/CPA-Key-Manager)**
+**插件 ID：`cpa-key-manager` · 商店名称：API Key 计费与团队管理 · 发布仓库：[hbdzp/CPA-Key-Manager](https://github.com/hbdzp/CPA-Key-Manager)**
 
 ## 功能特性
 
@@ -91,10 +91,10 @@ plugins:
 - **CPAMC**：**配置面板 → 可视化 → 高级与实验 → 插件 → 第三方插件源**，填入 `https://raw.githubusercontent.com/hbdzp/CPA-Key-Manager/main/registry.json`
 - **CPAMP**：**配置面板 / 配置文件 → 可视化 → 系统配置 → 插件商店来源**，追加上述 URL
 
-保存配置后，可在管理面板的**插件商店**中搜索 `cpa-key-billing` 或「API Key 计费与团队管理」（作者 `hbdzp`）直接一键安装；或通过管理 API 安装（本仓库源对应的固定 `source_id` 为 `source-f6b85975fe67`）：
+保存配置后，可在管理面板的**插件商店**中搜索 `cpa-key-manager` 或「API Key 计费与团队管理」（作者 `hbdzp`）直接一键安装；或通过管理 API 安装（本仓库源对应的固定 `source_id` 为 `source-f6b85975fe67`）：
 
 ```bash
-curl -X POST "http://127.0.0.1:8317/v8/management/plugins/store/cpa-key-billing/install?source=source-f6b85975fe67" \
+curl -X POST "http://127.0.0.1:8317/v8/management/plugins/store/cpa-key-manager/install?source=source-f6b85975fe67" \
   -H "Authorization: Bearer <管理密钥>"
 ```
 
@@ -121,9 +121,9 @@ irm https://raw.githubusercontent.com/hbdzp/CPA-Key-Manager/main/install.ps1 | i
 从 [Releases](https://github.com/hbdzp/CPA-Key-Manager/releases/latest) 下载对应系统和架构的压缩包（`.zip` 或 `.tar.gz`），解压到 CLIProxyAPI 的 `plugins/` 目录：
 
 ```text
-plugins/cpa-key-billing.so       # Linux (amd64 / arm64)
-plugins/cpa-key-billing.dylib    # macOS (amd64 / arm64)
-plugins/cpa-key-billing.dll      # Windows (amd64 / arm64)
+plugins/cpa-key-manager.so       # Linux (amd64 / arm64)
+plugins/cpa-key-manager.dylib    # macOS (amd64 / arm64)
+plugins/cpa-key-manager.dll      # Windows (amd64 / arm64)
 ```
 
 ### 方式四：从源码编译
@@ -135,18 +135,18 @@ plugins/cpa-key-billing.dll      # Windows (amd64 / arm64)
 CGO_ENABLED=1 GOOS=linux GOARCH=amd64 \
   go build -buildvcs=false -trimpath -ldflags="-s -w -buildid=" \
   -tags cshared -buildmode=c-shared \
-  -o dist/cpa-key-billing.so ./cmd/cpa-key-billing
+  -o dist/cpa-key-manager.so ./cmd/cpa-key-billing
 
 # macOS (arm64 / amd64)
 CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 \
   go build -buildvcs=false -tags cshared -buildmode=c-shared \
-  -o dist/cpa-key-billing.dylib ./cmd/cpa-key-billing
+  -o dist/cpa-key-manager.dylib ./cmd/cpa-key-billing
 
 # Windows (amd64)
 CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC=x86_64-w64-mingw32-gcc \
   go build -buildvcs=false -trimpath -ldflags="-s -w -buildid=" \
   -tags cshared -buildmode=c-shared \
-  -o dist/cpa-key-billing.dll ./cmd/cpa-key-billing
+  -o dist/cpa-key-manager.dll ./cmd/cpa-key-billing
 ```
 
 **自动化发布**：推送 `v*` 版本标签（如 `git tag v1.4.1 && git push origin v1.4.1`）或在 GitHub Actions 页面手动运行 `Release` 工作流，GitHub Actions 会自动编译全部 6 个平台产物（`.zip` + `.tar.gz` + `checksums.txt`）并发布 GitHub Release，插件商店用户可自动检测并升级。
@@ -160,14 +160,14 @@ plugins:
   enabled: true
   dir: "plugins"
   configs:
-    cpa-key-billing:
+    cpa-key-manager:
       enabled: true
       priority: 100 # 插件调度优先级，数值越大越优先
       debug: false # 是否记录 debug 日志，例如路由日志、匹配参考价日志
       codex_fast_mode_billing: false # 开启后，Codex 的 priority 请求按 2.5 倍计费
       mask_api_key_view_emails: false # 对 API Key 查询页面返回的邮箱进行掩码脱敏
       allow_api_key_quota_reset: false # 允许 API Key 用户重置可访问的 Codex 和 Claude 认证文件额度，消耗上游重置次数
-      state_file: "plugins/cpa-key-billing-state-v1.db"
+      state_file: "plugins/cpa-key-manager-state-v1.db"
       routing:
         strategy: "round-robin" # round-robin、weighted-round-robin、fill-first
         session-affinity: false # 同一会话优先复用可用的上游凭证
@@ -182,16 +182,16 @@ plugins:
 
 ## 页面访问
 
-管理员可以从 CLIProxyAPI 管理中心的「API Key Billing」菜单进入，也可以直接打开：
+管理员可以从 CLIProxyAPI 管理中心的「API Key Manager」菜单进入，也可以直接打开：
 
 ```text
-http(s)://<CLIProxyAPI 地址>/v0/resource/plugins/cpa-key-billing/ui
+http(s)://<CLIProxyAPI 地址>/v0/resource/plugins/cpa-key-manager/ui
 ```
 
 普通用户使用自己的 API Key 查询订阅额度和用量时，直接打开：
 
 ```text
-http(s)://<CLIProxyAPI 地址>/v0/resource/plugins/cpa-key-billing/ui#account
+http(s)://<CLIProxyAPI 地址>/v0/resource/plugins/cpa-key-manager/ui#account
 ```
 
 ## 团队分组、三态号池与路由规则

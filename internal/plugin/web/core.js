@@ -1,5 +1,5 @@
-const PLUGIN_BASE = "/v0/management/plugins/cpa-key-billing";
-const ACCOUNT_BASE = "/v0/resource/plugins/cpa-key-billing";
+const PLUGIN_BASE = "/v0/management/plugins/cpa-key-manager";
+const ACCOUNT_BASE = "/v0/resource/plugins/cpa-key-manager";
 const CALLER_SCOPE_SALT = "cli-proxy-api:caller-scope:v1\u0000";
 const DISPLAY_SEPARATOR = "\u2009·\u2009";
 const DISPLAY_SLASH = "\u2009/\u2009";
@@ -10,11 +10,11 @@ window.billingI18n.initialize();
 
 /* A same-origin iframe can borrow the panel's obfuscated management key. When
  * it is unavailable, the standalone login can use its own encrypted vault. */
-const CREDENTIAL_DB = "cpa-key-billing-credentials";
+const CREDENTIAL_DB = "cpa-key-manager-credentials";
 const CREDENTIAL_STORE = "vault";
 const CREDENTIAL_KEY = "wrapping-key";
-const SESSION_CREDENTIAL_PREFIX = "cpa-key-billing.session.v1.";
-const VIEW_PREFERENCE_PREFIX = "cpa-key-billing.view.v1.";
+const SESSION_CREDENTIAL_PREFIX = "cpa-key-manager.session.v1.";
+const VIEW_PREFERENCE_PREFIX = "cpa-key-manager.view.v1.";
 
 function readPanelKey() {
   const fromStore = panelStoredValue("cli-proxy-auth")?.state?.managementKey;
@@ -30,7 +30,7 @@ const embedded = window.parent !== window;
 document.body.classList.toggle("embedded", embedded);
 const ADMIN_TAB_IDS = ["keys", "groups", "analysis", "request-events", "errors", "auth-files", "settings"];
 const ACCOUNT_TAB_IDS = ["subscription", "analysis", "request-events", "errors", "auth-files"];
-const PAGE_ROUTE_KEY = "cpa-key-billing.route.v1." + (embedded ? "embedded" : "standalone");
+const PAGE_ROUTE_KEY = "cpa-key-manager.route.v1." + (embedded ? "embedded" : "standalone");
 
 function parsePageRoute(value) {
   const [role, tab] = value.split("/");

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Generate a CPA plugin store registry.json for self-hosted downloads.
 
-Scans --dist for cpa-key-billing_<version>_<goos>_<goarch>.zip files and emits a
+Scans --dist for cpa-key-manager_<version>_<goos>_<goarch>.zip files and emits a
 schema_version 2 registry with a "direct" install plan: one artifact per
 platform, each with its download URL, sha256 and size. CPA verifies the sha256
 before installing.
 
     python3 scripts/store/gen_registry.py --dist dist --version 1.4.1 \
-        --base-url https://example.com/cpa-plugins/cpa-key-billing/1.4.1 \
+        --base-url https://example.com/cpa-plugins/cpa-key-manager/1.4.1 \
         --out dist/registry.json
 """
 import argparse
@@ -18,7 +18,7 @@ import re
 import sys
 
 PLUGIN = {
-    "id": "cpa-key-billing",
+    "id": "cpa-key-manager",
     "name": "API Key 计费与团队管理",
     "description": "下游 API Key 计费、团队分组三态号池（普通/独占/公共）、分模型订阅额度与上游单账号并发管理插件。",
     "author": "hbdzp",

@@ -2,6 +2,10 @@
 
 ## v1.4.1
 
+### 升级与标识说明
+
+- 插件 ID 更新为 `cpa-key-manager`（管理菜单名称为 `API Key Manager`，默认数据库路径为 `plugins/cpa-key-manager-state-v1.db`，预编译产物前缀为 `cpa-key-manager`）。
+
 ### 增强特性（CPA Key Manager 整合版）
 
 - **团队分组与三态号池**：新增团队分组管理（`ordinary` 普通池、`exclusive` 独占池、`common` 公共兜底池）、访问控制双开关（`enabled` + `deny_ungrouped`）、API Key 批量分组，以及分组卡片内直接查看并一键全局启停上游账号。

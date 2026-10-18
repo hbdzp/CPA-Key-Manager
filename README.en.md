@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>CPA Key Manager (cpa-key-billing)</h1>
+  <h1>CPA Key Manager (cpa-key-manager)</h1>
   <p><strong>Per-key billing, team group routing pools, model-scoped quotas, and per-account concurrency management for <a href="https://github.com/router-for-me/CLIProxyAPI">CLIProxyAPI</a>.</strong></p>
   <p>
     <a href="https://github.com/hbdzp/CPA-Key-Manager/releases/latest"><img src="https://img.shields.io/github/v/release/hbdzp/CPA-Key-Manager?label=release" alt="Latest release"></a>
@@ -9,9 +9,9 @@
   </p>
   <p><strong>English</strong> · <a href="./README.md">简体中文</a></p>
 </div>
-<img src="images/example.png" alt="CPA Key Billing dashboard" width="100%" />
+<img src="images/example.png" alt="CPA Key Manager dashboard" width="100%" />
 
-**Plugin ID: `cpa-key-billing` · Store Name: API Key 计费与团队管理 · Repository: [hbdzp/CPA-Key-Manager](https://github.com/hbdzp/CPA-Key-Manager)**
+**Plugin ID: `cpa-key-manager` · Store Name: API Key 计费与团队管理 · Repository: [hbdzp/CPA-Key-Manager](https://github.com/hbdzp/CPA-Key-Manager)**
 
 ## Features
 
@@ -62,7 +62,7 @@ plugins:
 Then install from the management panel's **Plugin Store** or via the management API (`source-f6b85975fe67` is the deterministic `source_id` for the URL above):
 
 ```bash
-curl -X POST "http://127.0.0.1:8317/v8/management/plugins/store/cpa-key-billing/install?source=source-f6b85975fe67" \
+curl -X POST "http://127.0.0.1:8317/v8/management/plugins/store/cpa-key-manager/install?source=source-f6b85975fe67" \
   -H "Authorization: Bearer <MANAGEMENT_KEY>"
 ```
 
@@ -87,9 +87,9 @@ irm https://raw.githubusercontent.com/hbdzp/CPA-Key-Manager/main/install.ps1 | i
 Download the archive for your platform from [Releases](https://github.com/hbdzp/CPA-Key-Manager/releases/latest) and extract the library into CLIProxyAPI’s `plugins/` directory:
 
 ```text
-plugins/cpa-key-billing.so       # Linux (amd64 / arm64)
-plugins/cpa-key-billing.dylib    # macOS (amd64 / arm64)
-plugins/cpa-key-billing.dll      # Windows (amd64 / arm64)
+plugins/cpa-key-manager.so       # Linux (amd64 / arm64)
+plugins/cpa-key-manager.dylib    # macOS (amd64 / arm64)
+plugins/cpa-key-manager.dll      # Windows (amd64 / arm64)
 ```
 
 ## Configuration
@@ -101,14 +101,14 @@ plugins:
   enabled: true
   dir: "plugins"
   configs:
-    cpa-key-billing:
+    cpa-key-manager:
       enabled: true
       priority: 100 # Plugin scheduling priority; higher values take precedence
       debug: false # Include routing and reference-price matching in debug logs
       codex_fast_mode_billing: false # Charge 2.5× for Codex priority requests
       mask_api_key_view_emails: false # Mask email addresses in API key account views
       allow_api_key_quota_reset: false # Allow API key users to reset accessible Codex and Claude auth file quotas
-      state_file: "plugins/cpa-key-billing-state-v1.db"
+      state_file: "plugins/cpa-key-manager-state-v1.db"
       routing:
         strategy: "round-robin" # round-robin, weighted-round-robin, fill-first
         session-affinity: false # Reuse an available upstream credential for the same session

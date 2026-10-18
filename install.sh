@@ -3,13 +3,13 @@
 set -eu
 
 repository="hbdzp/CPA-Key-Manager"
-plugin_name="cpa-key-billing"
+plugin_name="cpa-key-manager"
 plugin_dir="$(pwd)/plugins"
 tmp_dir=""
 staged_file=""
 
 fail() {
-  printf 'cpa-key-billing: %s\n' "$*" >&2
+  printf 'cpa-key-manager: %s\n' "$*" >&2
   exit 1
 }
 

@@ -2,7 +2,7 @@ $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
 $repository = "hbdzp/CPA-Key-Manager"
-$pluginName = "cpa-key-billing"
+$pluginName = "cpa-key-manager"
 $pluginFile = "$pluginName.dll"
 $pluginDir = Join-Path (Get-Location).Path "plugins"
 $tempDir = $null

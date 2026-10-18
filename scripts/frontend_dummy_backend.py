@@ -19,8 +19,8 @@ ROOT = Path(__file__).resolve().parents[1]
 UI_DIR = ROOT / "internal" / "plugin" / "web"
 # Matches the placeholders internal/plugin/ui.go replaces with sibling files.
 UI_INCLUDE = re.compile(r"/\*([a-z0-9-]+\.(?:css|js))\*/")
-API_BASE = "/v0/management/plugins/cpa-key-billing"
-RESOURCE_BASE = "/v0/resource/plugins/cpa-key-billing"
+API_BASE = "/v0/management/plugins/cpa-key-manager"
+RESOURCE_BASE = "/v0/resource/plugins/cpa-key-manager"
 NOW = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
 CALLER_SCOPE_SALT = b"cli-proxy-api:caller-scope:v1\0"
 
@@ -1190,7 +1190,7 @@ PLUGIN_LOGS = [
         "at": iso(NOW - timedelta(minutes=11)),
         "level": "info",
         "message": (
-            "已加载计费数据库 /srv/cli-proxy-api/plugins/cpa-key-billing-state-v1.db："
+            "已加载计费数据库 /srv/cli-proxy-api/plugins/cpa-key-manager-state-v1.db："
             "8 个 API Key、3 个订阅计划、29 条请求事件。已启用。"
         ),
     },
