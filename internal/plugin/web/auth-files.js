@@ -732,7 +732,7 @@ function renderTeamAccountRuntime() {
     )
   );
   const pinnedAccounts = pinSelected(
-    (adminUIState.runtimePin ||= {}),
+    (adminUIState.runtimePin ||= new Map()),
     JSON.stringify([$("auth-provider").value, $("auth-search").value.trim(), $("auth-enabled-only").checked]),
     accounts,
     (item) => item.credential_ref || item.auth_index,

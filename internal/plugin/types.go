@@ -18,7 +18,7 @@ const (
 const (
 	PluginID   = "cpa-key-manager"
 	PluginName = "cpa-key-manager"
-	Version    = "1.4.1"
+	Version    = "1.4.2"
 
 	MenuLabel       = "API Key Manager"
 	MenuDescription = "Manage downstream API key groups, routing, billing, concurrency limits, subscription quotas, and usage"
