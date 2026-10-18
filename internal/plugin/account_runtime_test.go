@@ -269,4 +269,3 @@ func TestAccountRuntimeNormalizesProviderAndFallsBackToAuthIndex(t *testing.T) {
 		t.Fatalf("unexpected runtime accounts: %+v", response.Accounts)
 	}
 }
-
