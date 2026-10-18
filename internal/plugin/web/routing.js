@@ -434,10 +434,7 @@ function validateExclusiveGroupSelection(groups) {
 function groupRoutingFields(group) {
   if (!group.route_ids?.length && !Object.values(group.rule || {}).some((values) => Array.isArray(values) && values.length))
     return [
-      settingsEntryField(
-        m("ui.routing_rules"),
-        settingsChipList([], m("ui.fork_no_rules_or_credentials_bound_no_access_granted_37855b"))
-      )
+      settingsEntryField(m("ui.routing_rules"), settingsChipList([], m("ui.fork_no_rules_or_credentials_bound_no_access_granted_37855b")))
     ];
   const routes = (group.route_ids || []).map((id) => ({
     iconName: "route",
@@ -454,10 +451,7 @@ function groupRoutingFields(group) {
 
 function groupAccounts(group) {
   const routes = resources.admin.routes.value || [], credentials = resources.admin.credentials.value || [];
-  const rules = [
-    group.rule || {},
-    ...(group.route_ids || []).map((id) => routes.find((route) => route.id === id)?.rule).filter(Boolean)
-  ];
+  const rules = [group.rule || {}, ...(group.route_ids || []).map((id) => routes.find((route) => route.id === id)?.rule).filter(Boolean)];
   const matchesProvider = (selectors, item) =>
     (selectors || []).some(
       (selector) => selector.source === item.source && String(selector.provider).toLowerCase() === String(item.provider).toLowerCase()
@@ -465,9 +459,7 @@ function groupAccounts(group) {
   const allows = (item) =>
     rules.some((rule) => (rule.credential_ids || []).includes(item.ref) || matchesProvider(rule.credential_providers, item));
   const denies = (item) =>
-    rules.some(
-      (rule) => (rule.denied_credential_ids || []).includes(item.ref) || matchesProvider(rule.denied_credential_providers, item)
-    );
+    rules.some((rule) => (rule.denied_credential_ids || []).includes(item.ref) || matchesProvider(rule.denied_credential_providers, item));
   return credentials.filter((item) => allows(item) && !denies(item)).sort(compareCredentials);
 }
 
@@ -514,9 +506,7 @@ async function fetchGroupAccountRuntime() {
   for (const account of data.accounts || []) {
     if (!providers.has(account.provider) || account.source !== "ai-providers") continue;
     const matches = rows.filter((row) => row.credential_ref === account.credential_ref && row.provider === account.provider);
-    if (
-      matches.length !== 1 || !matches[0].status_patch || rows.filter((row) => row.auth_index === matches[0].auth_index).length !== 1
-    ) {
+    if (matches.length !== 1 || !matches[0].status_patch || rows.filter((row) => row.auth_index === matches[0].auth_index).length !== 1) {
       account.status_patch = null;
       continue;
     }
@@ -558,9 +548,7 @@ function groupAccountField(group) {
             }),
             el("span", { class: "small", text: m(pending ? "ui.saving" : disabled ? "ui.disabled" : "ui.enabled") })
           ),
-          !supported
-            ? el("span", { class: "small muted team-group-account-note", text: m("ui.group_account_switch_unavailable") })
-            : null,
+          !supported ? el("span", { class: "small muted team-group-account-note", text: m("ui.group_account_switch_unavailable") }) : null,
           runtime?.selection_unavailable
             ? el("span", { class: "small muted team-group-account-note", text: m("ui.group_account_zero_weight") })
             : null
@@ -1211,9 +1199,7 @@ $("group-save").onclick = () =>
   });
 $("group-picker-save").onclick = () =>
   submitEditor("group-picker", async () => {
-    validateExclusiveGroupSelection(
-      editors.get($("group-picker")).data.groups.filter((group) => keyGroupSelection.groups.has(group.id))
-    );
+    validateExclusiveGroupSelection(editors.get($("group-picker")).data.groups.filter((group) => keyGroupSelection.groups.has(group.id)));
     await mutateAdmin("PUT", "/keys/groups", { scopes: keyGroupSelection.scopes, group_ids: [...keyGroupSelection.groups] });
     notify(m("ui.fork_api_key_groups_saved"));
   });

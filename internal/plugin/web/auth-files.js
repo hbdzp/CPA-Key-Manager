@@ -743,8 +743,7 @@ function renderTeamAccountRuntime() {
     empty: m("ui.team_no_accounts"),
     render: (item) => {
       const pending = adminUIState.runtimeSaving?.has(item.credential_ref), busy = teamAccountBatchBusy(), usage = item.usage || {};
-      const name =
-        item.name && item.name.trim().toLowerCase() !== "no email provided" ? item.name : item.auth_index || item.credential_ref;
+      const name = item.name && item.name.trim().toLowerCase() !== "no email provided" ? item.name : item.auth_index || item.credential_ref;
       const limit = el("input", {
         type: "number",
         min: "0",
@@ -828,12 +827,7 @@ function renderTeamAccountRuntime() {
           class: "small muted",
           text: m("ui.team_last_used", { at: item.usage_available !== false && usage.last_used_at ? when(usage.last_used_at) : "—" })
         }),
-        el(
-          "div",
-          { class: "team-account-concurrency" },
-          el("label", { class: "field" }, m("ui.team_concurrency_limit"), limit),
-          save
-        ),
+        el("div", { class: "team-account-concurrency" }, el("label", { class: "field" }, m("ui.team_concurrency_limit"), limit), save),
         el("div", { class: "small muted", text: m("ui.team_concurrency_active", { active: item.current_concurrency || 0 }) })
       );
     }
