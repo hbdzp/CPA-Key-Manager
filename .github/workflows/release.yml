@@ -7,8 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Existing tag to rebuild and republish.
-        required: true
+        description: Release tag to build and publish (e.g. v1.4.1).
+        required: false
+        default: "v1.4.1"
         type: string
 
 permissions:
@@ -20,14 +21,14 @@ concurrency:
 
 env:
   RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
-  RELEASE_REF: ${{ inputs.release_tag || github.ref }}
+  RELEASE_REF: ${{ github.ref }}
 
 jobs:
   check:
     name: Verify tagged source
     uses: ./.github/workflows/check.yml
     with:
-      checkout_ref: ${{ inputs.release_tag || github.ref }}
+      checkout_ref: ${{ github.ref }}
       release_tag: ${{ inputs.release_tag || github.ref_name }}
       verify_release_version: true
 
