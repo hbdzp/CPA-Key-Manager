@@ -313,69 +313,59 @@ function compactEnabledToggle(checked, onChange, title) {
   );
 }
 
-function validateAccessControl() {
-  const enabled = $("access-control-enabled").checked;
-  const denyUngrouped = $("access-control-deny-ungrouped").checked;
-  if (!enabled) {
-    $("access-control-deny-ungrouped").checked = false;
-    $("access-control-deny-ungrouped").disabled = true;
-  } else { $("access-control-deny-ungrouped").disabled = false; }
-  const current = resources.admin.accessControl.value || { enabled: false, deny_ungrouped: false };
-  const dirty = Boolean(current.enabled) !== enabled || (enabled && Boolean(current.deny_ungrouped) !== denyUngrouped);
-  $("access-control-save").disabled = !dirty;
+function validateAccessControl(value) {
+  if (!value || typeof value.enabled !== "boolean" || typeof value.deny_ungrouped !== "boolean")
+    throw new UIError(m("ui.fork_invalid_access_control_response"));
+  return value;
 }
 
 function renderAccessControl() {
-  if (
-    renderDataPending(
-      $("access-control-status"),
-      [resources.admin.accessControl, resources.admin.keys, resources.admin.groups],
-      m("ui.loading")
-    )
-  ) {
-    $("access-control-save").disabled = true;
-    return;
+  const resource = resources.admin.accessControl;
+  const value = resource.value;
+  for (const id of ["access-control-enabled", "access-control-deny-ungrouped", "access-control-save"])
+    $(id).disabled = !value || !!adminUIState.accessSaving;
+  setText($("access-control-save"), adminUIState.accessSaving ? m("ui.saving") : m("ui.save"));
+  const signature = value && JSON.stringify(value);
+  if (value && adminUIState.accessControlShown !== signature) {
+    $("access-control-enabled").checked = value.enabled;
+    $("access-control-deny-ungrouped").checked = value.deny_ungrouped;
+    adminUIState.accessControlShown = signature;
   }
-  const settings = resources.admin.accessControl.value || { enabled: false, deny_ungrouped: false };
-  $("access-control-enabled").checked = Boolean(settings.enabled);
-  $("access-control-deny-ungrouped").checked = Boolean(settings.enabled && settings.deny_ungrouped);
-  validateAccessControl();
-  const keys = (resources.admin.keys.value || []).filter((key) => !key.deleted_at);
-  const ungrouped = keys.filter((key) => !key.group_ids?.length).length;
-  const groups = resources.admin.groups.value || [];
-  const authorizedGroups = groups.filter(groupGrantsAccess).length;
-  $("access-control-status").replaceChildren(
-    el("span", {
-      class: "tag " + (settings.enabled ? "warn" : "plain"),
-      text: settings.enabled ? m("ui.fork_access_control_enabled") : m("ui.fork_access_control_disabled")
-    }),
-    el("span", {
-      class: "tag " + (settings.enabled && settings.deny_ungrouped ? "bad" : "plain"),
-      text:
-        settings.enabled && settings.deny_ungrouped
-          ? m("ui.fork_ungrouped_keys_denied_value", { v0: int(ungrouped) })
-          : m("ui.fork_ungrouped_keys_allowed_value", { v0: int(ungrouped) })
-    }),
-    el("span", {
-      class: "tag plain",
-      text: m("ui.fork_authorized_groups_value_value", { v0: int(authorizedGroups), v1: int(groups.length) })
-    })
-  );
+  const status = $("access-control-status");
+  status.className = resource.error ? "notice err show" : value ? "notice hidden" : "notice show";
+  setText(status, resource.error || (value ? "" : m("ui.fork_loading_saved_access_control_settings")));
 }
 
 async function saveAccessControl() {
-  const button = $("access-control-save");
-  button.disabled = true;
+  const owner = adminUIState;
+  if (owner.accessSaving || !resources.admin.accessControl.value) return;
+  const payload = { enabled: $("access-control-enabled").checked, deny_ungrouped: $("access-control-deny-ungrouped").checked };
+  owner.accessSaving = true;
+  for (const id of ["access-control-enabled", "access-control-deny-ungrouped", "access-control-save"]) $(id).disabled = true;
+  setText($("access-control-save"), m("ui.saving"));
   try {
-    const enabled = $("access-control-enabled").checked;
-    const denyUngrouped = enabled && $("access-control-deny-ungrouped").checked;
-    await mutateAdmin("PUT", "/access-control", { enabled, deny_ungrouped: denyUngrouped });
-    notify(m("ui.fork_access_control_updated"));
-  } finally { validateAccessControl(); }
+    const result = await writeAdmin("PUT", "/access-control", payload);
+    const saved = validateAccessControl(result.view?.access_control);
+    if (saved.enabled !== payload.enabled || saved.deny_ungrouped !== payload.deny_ungrouped)
+      throw new UIError(m("ui.fork_saved_settings_differ_from_the_request_refresh_to_confirm"));
+    Object.assign(resources.admin.accessControl, { value: saved, error: "" });
+    notify(m("ui.fork_access_control_settings_saved"));
+    renderPage();
+  } catch (error) {
+    if (error instanceof AuthError || error instanceof StaleRequestError) return fail(error);
+    if (owner === adminUIState) {
+      $("access-control-status").className = "notice err show";
+      setText($("access-control-status"), m("ui.save_failed_details", { reason: error.message || error }));
+    }
+  } finally {
+    owner.accessSaving = false;
+    if (owner === adminUIState) {
+      for (const id of ["access-control-enabled", "access-control-deny-ungrouped", "access-control-save"]) $(id).disabled = false;
+      setText($("access-control-save"), m("ui.save"));
+    }
+  }
 }
 
-$("access-control-enabled").addEventListener("change", validateAccessControl);
-$("access-control-deny-ungrouped").addEventListener("change", validateAccessControl);
 $("access-control-save").onclick = () => guard(saveAccessControl);
 
 function routingDimensionChips(rule, kind, labels) {
@@ -413,274 +403,266 @@ function routingDimensionChips(rule, kind, labels) {
 }
 
 function groupGrantsAccess(group) {
-  if (group?.enabled === false) return false;
-  const bindings = group?.route_bindings || {};
-  return Boolean(
-    bindings.route_ids?.length || bindings.models?.length || bindings.denied_models?.length || bindings.credential_ids?.length ||
-      bindings.denied_credential_ids?.length ||
-      bindings.credential_providers?.length ||
-      bindings.denied_credential_providers?.length
+  return (
+    !group.disabled &&
+    (!!group.route_ids?.length || Object.values(group.rule || {}).some((values) => Array.isArray(values) && values.length > 0))
   );
 }
 
-function groupBindingSummary(groups) { return m("ui.fork_value_groups", { v0: groups.length }); }
-
-function groupRoutingModeLabel(mode) {
-  return mode === "exclusive" ? m("ui.fork_exclusive_pool") : mode === "common" ? m("ui.fork_common_pool") : m("ui.fork_standard_pool");
+function groupBindingSummary(group) {
+  const rule = group.rule || {};
+  const count = (field) => (rule[field] || []).length + (rule["denied_" + field] || []).length;
+  const credentials = count("credential_ids") + count("credential_providers");
+  const parts = [groupRoutingModeLabel(group)];
+  if (group.route_ids?.length) parts.push(m("ui.group_route_count", { count: group.route_ids.length }));
+  if (credentials) parts.push(m("ui.group_credential_count", { count: credentials }));
+  if (count("models")) parts.push(m("ui.group_model_count", { count: count("models") }));
+  if (parts.length === 1) parts.push(m("ui.fork_no_rules_or_credentials_bound_no_access_granted"));
+  return [...(group.disabled ? [m("ui.fork_disabled")] : []), ...parts].join(" · ");
 }
 
-function validateExclusiveGroupSelection(groupID, mode, bindings, groups = resources.admin.groups.value || []) {
-  const allowedIDs = new Set(bindings.credential_ids || []);
-  const allowedProviders = bindings.credential_providers || [];
-  if (mode === "exclusive") {
-    if (bindings.route_ids?.length)
-      throw new UIError(m("ui.fork_exclusive_groups_must_bind_upstream_credentials_directly_routing_rule_bindings_a"));
-    if (!allowedIDs.size && !allowedProviders.length)
-      throw new UIError(m("ui.fork_exclusive_groups_must_select_at_least_one_upstream_credential"));
-  }
-  const touches = (otherBindings) => {
-    for (const ref of otherBindings.credential_ids || []) if (allowedIDs.has(ref)) return ref;
-    for (const provider of otherBindings.credential_providers || []) {
-      if (allowedProviders.some((item) => sameCredentialProvider(item, provider))) return credentialProviderLabel(provider);
-    }
-    const credentials = resources.admin.credentials.value || [];
-    for (const item of credentials) {
-      const inCurrent = allowedIDs.has(item.ref) || allowedProviders.some((provider) => sameCredentialProvider(provider, item));
-      const inOther =
-        (otherBindings.credential_ids || []).includes(item.ref) ||
-        (otherBindings.credential_providers || []).some((provider) => sameCredentialProvider(provider, item));
-      if (inCurrent && inOther) return credentialLabel(item);
-    }
-    return "";
-  };
-  for (const other of groups) {
-    if (!other || other.id === groupID) continue;
-    const otherMode = other.routing_mode || "ordinary";
-    if (mode !== "exclusive" && otherMode !== "exclusive") continue;
-    const conflict = touches(other.route_bindings || {});
-    if (conflict) {
-      throw new UIError(
-        mode === "exclusive"
-          ? m("ui.fork_exclusive_credential_conflict_with_group_value_value", { v0: other.name || other.id, v1: conflict })
-          : m("ui.fork_credential_belongs_to_exclusive_group_value_value", { v0: other.name || other.id, v1: conflict })
-      );
-    }
-  }
+function groupRoutingModeLabel(group) {
+  const mode = ["exclusive", "common"].includes(group.routing_mode) ? group.routing_mode : "ordinary";
+  return m("ui.group_mode_" + mode);
+}
+
+function validateExclusiveGroupSelection(groups) {
+  if (groups.filter((group) => !group.disabled && group.routing_mode === "exclusive").length > 1)
+    throw new UIError(m("ui.group_exclusive_conflict"));
 }
 
 function groupRoutingFields(group) {
-  const bindings = group.route_bindings || {};
-  const enabled = group.enabled !== false;
-  const routes = (bindings.route_ids || []).map((id) => ({
-    iconName: "route",
-    text: group.route_names?.[id] || (Object.hasOwn(group.route_names || {}, id) ? id : m("ui.routing_rule_no_longer_exists"))
-  }));
-  const models = routingDimensionChips(bindings, "model", group.credential_labels);
-  const credentials = routingDimensionChips(bindings, "credential", group.credential_labels);
-  const authorized = groupGrantsAccess(group);
-  const mode = group.routing_mode || "ordinary";
-  return [
-    settingsEntryField(
-      m("ui.status"),
-      el(
-        "div",
-        { class: "settings-chip-list" },
-        el("span", {
-          class: "tag " + (!enabled ? "plain" : authorized ? "ok" : "warn"),
-          text: !enabled ? m("ui.disabled") : authorized ? m("ui.active") : m("ui.fork_no_upstream_access_configured")
-        }),
-        el("span", {
-          class: "tag " + (mode === "exclusive" ? "warn" : mode === "common" ? "ok" : "plain"),
-          text: groupRoutingModeLabel(mode)
-        })
+  if (!group.route_ids?.length && !Object.values(group.rule || {}).some((values) => Array.isArray(values) && values.length))
+    return [
+      settingsEntryField(
+        m("ui.routing_rules"),
+        settingsChipList([], m("ui.fork_no_rules_or_credentials_bound_no_access_granted_37855b"))
       )
-    ),
-    group.description ? settingsEntryField(m("ui.description"), el("span", { text: displayLabel(group.description) })) : null,
-    settingsEntryField(m("ui.routing_rules"), settingsChipList(routes, "—")),
-    settingsEntryField(
-      m("ui.model_access"),
-      settingsChipList(models, routes.length ? m("ui.fork_from_routing_rules") : m("ui.all_models"))
-    ),
-    settingsEntryField(
-      m("ui.credential_access"),
-      settingsChipList(credentials, routes.length ? m("ui.fork_from_routing_rules") : m("ui.fork_no_credentials_authorized"))
-    ),
-    groupAccountField(group)
-  ].filter(Boolean);
-}
-
-let groupAccountRuntime = { items: new Map(), loading: false };
-
-async function fetchGroupAccountRuntime() {
-  if (groupAccountRuntime.loading) return;
-  groupAccountRuntime.loading = true;
-  try {
-    const result = await plugin("GET", "/accounts/runtime").catch(() => null);
-    if (Array.isArray(result?.items)) {
-      groupAccountRuntime.items = new Map(result.items.map((item) => [item.ref, item]));
-      if (currentRole === "admin" && activeTab(false) === "groups") renderGroups();
-    }
-  } finally { groupAccountRuntime.loading = false; }
+    ];
+  const routes = (group.route_ids || []).map((id) => ({
+    iconName: "route",
+    text: resources.admin.routes.value.find((route) => route.id === id)?.name || id
+  }));
+  return [
+    [m("ui.routing_rules"), routes],
+    [m("ui.upstream_credentials"), routingDimensionChips(group.rule || {}, "credential", group.credential_labels)],
+    [m("backend.model"), routingDimensionChips(group.rule || {}, "model", group.credential_labels)]
+  ]
+    .filter(([, items]) => items.length)
+    .map(([label, items]) => settingsEntryField(label, settingsChipList(items)));
 }
 
 function groupAccounts(group) {
-  const credentials = resources.admin.credentials.value || [];
-  const routes = resources.admin.routes.value || [];
+  const routes = resources.admin.routes.value || [], credentials = resources.admin.credentials.value || [];
   const rules = [
-    group.route_bindings || {},
-    ...(group.route_bindings?.route_ids || []).map((id) => routes.find((route) => route.id === id)?.rule).filter(Boolean)
+    group.rule || {},
+    ...(group.route_ids || []).map((id) => routes.find((route) => route.id === id)?.rule).filter(Boolean)
   ];
-  const matched = new Map();
-  for (const rule of rules) {
-    for (const ref of rule.credential_ids || []) {
-      const found = credentials.find((item) => item.ref === ref);
-      const runtime = groupAccountRuntime.items.get(ref);
-      matched.set(
-        ref,
-        found
-          ? { ...found, disabled: runtime ? Boolean(runtime.disabled) : Boolean(found.disabled) }
-          : {
-              ref,
-              source: runtime?.source || (ref.startsWith("auth:") ? "auth" : "config"),
-              provider: runtime?.provider || "",
-              name: runtime?.name || group.credential_labels?.[ref] || ref.slice(-8),
-              disabled: Boolean(runtime?.disabled),
-              unavailable: runtime ? Boolean(runtime.unavailable) : true,
-              status: runtime?.status || "missing",
-              status_message: runtime?.status_message || ""
-            }
-      );
-    }
-    for (const provider of rule.credential_providers || []) {
-      for (const item of credentials) {
-        if (sameCredentialProvider(provider, item)) {
-          const runtime = groupAccountRuntime.items.get(item.ref);
-          matched.set(item.ref, { ...item, disabled: runtime ? Boolean(runtime.disabled) : Boolean(item.disabled) });
-        }
+  const matchesProvider = (selectors, item) =>
+    (selectors || []).some(
+      (selector) => selector.source === item.source && String(selector.provider).toLowerCase() === String(item.provider).toLowerCase()
+    );
+  const allows = (item) =>
+    rules.some((rule) => (rule.credential_ids || []).includes(item.ref) || matchesProvider(rule.credential_providers, item));
+  const denies = (item) =>
+    rules.some(
+      (rule) => (rule.denied_credential_ids || []).includes(item.ref) || matchesProvider(rule.denied_credential_providers, item)
+    );
+  return credentials.filter((item) => allows(item) && !denies(item)).sort(compareCredentials);
+}
+
+function groupAccountRuntime(item, data = resources.admin.accountRuntime.value) {
+  const matches = (data?.accounts || []).filter((account) => account.credential_ref === item.ref);
+  return matches.length === 1 ? matches[0] : null;
+}
+
+async function fetchGroupAccountRuntime() {
+  const data = await plugin("GET", "/account-runtime");
+  if (Number(data.host_schema || 0) < 6) return data;
+  const key = authKey;
+  const definitions = CONFIGURED_CREDENTIAL_FIELDS;
+  const providers = new Set((data.accounts || []).filter((item) => item.source === "ai-providers").map((item) => item.provider));
+  const selected = definitions.filter(([, provider]) => providers.has(provider));
+  const results = await Promise.allSettled(
+    selected.map(async ([resource, provider, kind, usesHeaders]) => {
+      const snapshot = await api("GET", "/v0/management/" + resource, null, { key, raw: true });
+      const counters = new Map(), rows = [];
+      for (const entry of configuredCredentialEntries(snapshot, resource)) {
+        const token = (entry["api-key"] || "").trim(), base = (entry["base-url"] || "").trim();
+        if (!token && !base) continue;
+        const parts = [token, base, entry["proxy-url"]];
+        if (usesHeaders) parts.push(entry.prefix, sortedConfiguredHeaders(entry.headers));
+        const identity = await configuredCredentialIdentity(kind, parts, counters);
+        const index = typeof entry["auth-index"] === "string" ? entry["auth-index"] : "";
+        rows.push({
+          credential_ref: identity.ref,
+          provider,
+          auth_index: index,
+          disabled: configuredEntryDisabled(entry),
+          selection_unavailable: (entry.weight ?? 1) <= 0,
+          status_patch: index ? { name: identity.id, auth_index: index } : null
+        });
       }
-    }
+      return rows;
+    })
+  );
+  const rows = [];
+  for (const result of results) {
+    if (result.status === "fulfilled") rows.push(...result.value);
+    else if (result.reason instanceof AuthError || result.reason instanceof StaleRequestError) throw result.reason;
   }
-  for (const rule of rules) {
-    for (const ref of rule.denied_credential_ids || []) matched.delete(ref);
-    for (const provider of rule.denied_credential_providers || []) {
-      for (const [ref, item] of matched.entries()) { if (sameCredentialProvider(provider, item)) matched.delete(ref); }
+  for (const account of data.accounts || []) {
+    if (!providers.has(account.provider) || account.source !== "ai-providers") continue;
+    const matches = rows.filter((row) => row.credential_ref === account.credential_ref && row.provider === account.provider);
+    if (
+      matches.length !== 1 || !matches[0].status_patch || rows.filter((row) => row.auth_index === matches[0].auth_index).length !== 1
+    ) {
+      account.status_patch = null;
+      continue;
     }
+    Object.assign(account, matches[0]);
   }
-  return [...matched.values()].sort(compareCredentials);
+  return data;
 }
 
 function groupAccountField(group) {
-  const accounts = groupAccounts(group);
-  if (!accounts.length && !groupAccountRuntime.loading) fetchGroupAccountRuntime();
-  const chips = accounts.map((item) => {
-    const busy = adminUIState.groupSubmissions.has("account:" + item.ref);
-    const runtime = groupAccountRuntime.items.get(item.ref);
-    const statusText = item.disabled
-      ? m("ui.disabled")
-      : item.unavailable
-        ? m("ui.unavailable")
-        : runtime?.status === "error" ? m("ui.error") : runtime?.status === "pending" ? m("ui.fork_pending") : m("ui.active");
-    const statusTone = item.disabled ? "plain" : item.unavailable || runtime?.status === "error" ? "bad" : "ok";
-    const statusTitle = runtime?.status_message || item.status_message || "";
-    const statusButton = el("button", {
-      type: "button",
-      class: "link small group-account-toggle",
-      text: item.disabled ? m("ui.enable") : m("ui.disable"),
-      disabled: busy,
-      onclick: () => guard(() => setGroupAccountEnabled(item, item.disabled))
-    });
-    return {
-      text: maskedTailText(item.provider, credentialName(item)),
-      iconName: credentialIcon(item),
-      status: statusText,
-      statusTone,
-      hint: statusTitle,
-      control: statusButton
-    };
-  });
-  return settingsEntryField(
-    m("ui.fork_group_accounts"),
-    el("div", { class: "team-group-accounts" }, settingsChipList(chips, m("ui.fork_no_bound_accounts_matched")))
+  const items = groupAccounts(group);
+  const missing = (group.route_ids || []).some((id) => !(resources.admin.routes.value || []).some((route) => route.id === id));
+  const content = el(
+    "div",
+    { class: "team-group-accounts" },
+    missing ? el("div", { class: "auth-quota-error", text: m("ui.team_group_missing_route") }) : null,
+    el(
+      "div",
+      { class: "team-group-account-grid" },
+      ...items.map((item) => {
+        const runtime = groupAccountRuntime(item), pending = adminUIState.groupAccountSubmissions?.has(item.ref);
+        const disabled = runtime ? runtime.disabled : item.disabled;
+        const supported = !!runtime?.status_patch?.name && !!runtime?.status_patch?.auth_index;
+        return el(
+          "div",
+          { class: "team-group-account", "data-credential-ref": item.ref },
+          el("span", { class: "team-account-name", text: credentialLabel(item), title: credentialLabel(item) }),
+          el(
+            "label",
+            { class: "toggle-filter", title: m(supported ? "ui.group_account_switch_help" : "ui.group_account_switch_unavailable") },
+            switchControl({
+              input: el("input", {
+                type: "checkbox",
+                role: "switch",
+                checked: !disabled,
+                disabled: pending || !supported,
+                "aria-label": m("ui.group_account_enable_named", { name: credentialLabel(item) }),
+                onchange: (event) => guard(() => setGroupAccountEnabled(item, event.target.checked))
+              })
+            }),
+            el("span", { class: "small", text: m(pending ? "ui.saving" : disabled ? "ui.disabled" : "ui.enabled") })
+          ),
+          !supported
+            ? el("span", { class: "small muted team-group-account-note", text: m("ui.group_account_switch_unavailable") })
+            : null,
+          runtime?.selection_unavailable
+            ? el("span", { class: "small muted team-group-account-note", text: m("ui.group_account_zero_weight") })
+            : null
+        );
+      })
+    ),
+    !items.length ? el("span", { class: "small muted", text: m("ui.team_group_no_accounts") }) : null,
+    group.disabled ? el("span", { class: "small muted", text: m("ui.team_group_disabled_accounts") }) : null
   );
+  const field = settingsEntryField(m("ui.team_group_accounts"), content);
+  field.classList.add("team-group-field");
+  return field;
 }
 
 async function setGroupAccountEnabled(item, enabled) {
-  const key = "account:" + item.ref;
-  if (adminUIState.groupSubmissions.has(key)) return;
-  adminUIState.groupSubmissions.add(key);
+  const owner = adminUIState;
+  owner.groupAccountSubmissions ||= new Set();
+  if (owner.groupAccountSubmissions.has(item.ref)) return;
+  owner.groupAccountSubmissions.add(item.ref);
   renderGroups();
+  let submitted = false;
   try {
-    await plugin("POST", "/accounts/status", { ref: item.ref, disabled: !enabled });
-    const existing = groupAccountRuntime.items.get(item.ref) || {};
-    groupAccountRuntime.items.set(item.ref, { ...existing, ref: item.ref, disabled: !enabled });
-    await Promise.all([
-      loadDataGroup(false, "configuration", true),
-      loadDataGroup(false, "accountRuntime", true),
-      readAuthFiles(false, true).catch(() => {})
-    ]);
-    notify(enabled ? m("ui.fork_account_enabled") : m("ui.fork_account_disabled"));
+    await queueAdminData("configuration", async (current) => {
+      const before = await fetchGroupAccountRuntime();
+      current();
+      const target = groupAccountRuntime(item, before), patch = target?.status_patch;
+      if (!patch?.name || !patch.auth_index || patch.auth_index !== target.auth_index)
+        throw new UIError(m("ui.group_account_switch_unavailable"));
+      submitted = true;
+      await api(
+        "PATCH",
+        "/v0/management/auth-files/status",
+        { name: patch.name, auth_index: patch.auth_index, disabled: !enabled },
+        { command: true }
+      );
+      const after = await fetchGroupAccountRuntime();
+      current();
+      Object.assign(resources.admin.accountRuntime, { value: after, error: "" });
+      const verified = groupAccountRuntime(item, after);
+      if (!verified || verified.disabled !== !enabled) throw new UIError(m("ui.group_account_switch_unverified"));
+    });
+    await loadDataGroup(false, "configuration", true);
+    notify(m(enabled ? "ui.group_account_enabled" : "ui.group_account_disabled"));
+  } catch (error) {
+    if (submitted && owner === adminUIState) await loadDataGroup(false, "accountRuntime", true);
+    throw error;
   } finally {
-    adminUIState.groupSubmissions.delete(key);
-    renderGroups();
+    owner.groupAccountSubmissions.delete(item.ref);
+    if (owner === adminUIState) renderGroups();
   }
 }
 
 function renderGroups() {
-  renderAccessControl();
-  if (renderDataPending($("groups-body"), [resources.admin.groups, resources.admin.keys], m("ui.loading"), "empty section-loading")) return;
-  if (!groupAccountRuntime.items.size && !groupAccountRuntime.loading) fetchGroupAccountRuntime();
   $("group-new").disabled = EDITOR_RESOURCES.group.some((name) => resources.admin[name].value === null);
-  const groups = resources.admin.groups.value.map((group) => ({
-    group,
-    boundKeys: resources.admin.keys.value.filter((key) => (key.group_ids || []).includes(group.id))
-  }));
-  renderCollection($("groups-body"), groups, {
+  if (
+    renderDataPending(
+      $("groups-body"),
+      [resources.admin.groups, resources.admin.keys, resources.admin.routes],
+      m("ui.fork_loading"),
+      "empty section-loading"
+    )
+  )
+    return;
+  renderCollection($("groups-body"), resources.admin.groups.value, {
     attrs: { class: "event-list settings-card-list", role: "list" },
-    empty: m("ui.fork_no_groups"),
-    render: ({ group, boundKeys }) => {
-      const name = group.name || group.id;
-      const enabled = group.enabled !== false;
-      const busy = adminUIState.groupSubmissions.has(group.id);
-      const toggle = el(
-        "label",
-        { class: "toggle-filter compact-toggle", "data-tip": m("ui.fork_enable_or_disable_this_group") },
-        switchControl({
-          input: el("input", {
-            type: "checkbox",
-            role: "switch",
-            checked: enabled,
-            disabled: busy,
-            "aria-label": m("ui.fork_enable_group_value", { v0: name }),
-            onchange: (event) => guard(() => setGroupEnabled(group, event.target.checked))
-          })
-        }),
-        el("span", { text: enabled ? m("ui.enabled") : m("ui.disabled") })
-      );
-      return settingsCard(
-        name,
-        [...groupRoutingFields(group), boundKeyField(boundKeys)],
+    empty: m("ui.fork_no_groups_create_a_group_to_grant_access_to_multiple_keys"),
+    render: (group) =>
+      settingsCard(
+        group.name || group.id,
+        [
+          settingsEntryField(m("ui.group_routing_mode"), el("span", { class: "tag plain", text: groupRoutingModeLabel(group) })),
+          ...groupRoutingFields(group),
+          groupAccountField(group),
+          boundKeyField(resources.admin.keys.value.filter((key) => (key.group_ids || []).includes(group.id)))
+        ],
         () => editGroup(group),
         () =>
           openActionDialog(
-            m("ui.fork_delete_group_value", { v0: name }),
-            boundKeys.length
-              ? m("ui.fork_remove_this_group_from_value_value", {
-                  v0: bindingSummary(boundKeys),
-                  v1:
-                    resources.admin.accessControl.value?.enabled && resources.admin.accessControl.value?.deny_ungrouped
-                      ? m("ui.fork_keys_left_without_a_group_will_be_denied_until_assigned_to_another_group")
-                      : ""
-                })
-              : m("ui.this_action_cannot_be_undone"),
+            m("ui.delete_named_group", { name: group.name || group.id }),
+            m("ui.fork_this_group_will_be_removed_from_all_keys_remaining_groups_and_the_ungroupe"),
             undefined,
             async () => {
               await mutateAdmin("DELETE", "/groups?id=" + encodeURIComponent(group.id));
               notify(m("ui.fork_group_deleted"));
             }
           ),
-        toggle
-      );
-    }
+        el(
+          "label",
+          { class: "toggle-filter", title: m("ui.fork_disabling_preserves_rules_and_members_but_stops_granting_access") },
+          switchControl({
+            input: el("input", {
+              type: "checkbox",
+              role: "switch",
+              checked: !group.disabled,
+              "aria-label": m("ui.enable_named_group", { name: group.name || group.id }),
+              disabled: adminUIState.groupSubmissions.has(group.id),
+              onchange: (event) => guard(() => setGroupEnabled(group, event.target.checked))
+            })
+          }),
+          el("span", { text: group.disabled ? m("backend.disabled") : m("ui.enabled") })
+        )
+      )
   });
 }
 
@@ -690,8 +672,8 @@ async function setGroupEnabled(group, enabled) {
   owner.groupSubmissions.add(group.id);
   renderGroups();
   try {
-    await mutateAdmin("PATCH", "/groups", { id: group.id, enabled });
-    notify(enabled ? m("ui.fork_group_enabled") : m("ui.fork_group_disabled"));
+    await mutateAdmin("PATCH", "/groups", { id: group.id, disabled: !enabled });
+    notify(m("ui.group_enabled_changed", { state: enabled ? m("ui.group_enabled_state") : m("ui.group_disabled_state") }));
   } finally {
     owner.groupSubmissions.delete(group.id);
     if (owner === adminUIState) renderGroups();
@@ -699,149 +681,109 @@ async function setGroupEnabled(group, enabled) {
 }
 
 let groupSelection;
-let keyGroupSelection = { scopes: [] };
+let keyGroupSelection;
 
-function groupFilteredKeys(keys, groupID, selectedScopes) {
+function groupFilteredKeys() {
+  const data = editors.get($("group-dialog")).data;
   const term = $("group-key-search").value.trim().toLowerCase();
-  const groupFilter = $("group-key-filter").value;
-  return keys.filter((key) => !key.deleted_at || (groupID && (key.group_ids || []).includes(groupID)) || selectedScopes.has(key.scope))
-    .filter((key) => {
-      if (groupFilter === "__current__") return selectedScopes.has(key.scope);
-      return keyMatchesGroup(key, groupFilter);
-    })
-    .filter((key) =>
-      matchesTerm([apiKeyIdentity(key).text, ...(key.group_names || []), key.plan_name, key.scope].filter(Boolean).join(" "), term)
-    );
+  return data.keys.filter((key) => !key.deleted_at || groupSelection.scopes.has(key.scope))
+    .filter((key) => keyMatchesGroup(key, $("group-key-filter").value))
+    .filter((key) => matchesTerm(apiKeyIdentity(key).text + " " + key.scope, term));
 }
 
 function renderGroupKeyList() {
-  const editor = editors.get($("group-dialog"));
-  if (!editor) return;
-  const list = $("group-key-list");
-  const groupID = $("group-id").value;
-  const selectedScopes = groupSelection.keyScopes;
-  groupSelection.keyOrderMemo ||= new Map();
-  const orderedKeys = pinSelected(
-    groupSelection.keyOrderMemo,
-    "keys",
-    editor.data.keys,
-    (key) => key.scope,
-    (key) => selectedScopes.has(key.scope)
-  );
-  const keys = groupFilteredKeys(orderedKeys, groupID, selectedScopes);
-  if (!keys.length) {
-    list.replaceChildren(el("div", { class: "empty", text: m("ui.fork_no_matching_api_keys") }));
-    return;
-  }
-  list.replaceChildren(
-    ...keys.map((key) => {
-      const checked = selectedScopes.has(key.scope);
-      const otherGroups = (key.group_names || []).filter((_, index) => (key.group_ids || [])[index] !== groupID);
-      return el(
-        "label",
-        {},
-        checkboxControl({
-          input: el("input", {
-            type: "checkbox",
-            value: key.scope,
-            checked,
-            onchange: (event) => { if (event.target.checked) selectedScopes.add(key.scope); else selectedScopes.delete(key.scope); }
-          })
-        }),
-        renderAPIKeyIdentity(key),
-        otherGroups.length ? el("span", { class: "muted small", text: otherGroups.join(", ") }) : null,
-        key.deleted_at ? el("span", { class: "tag plain", text: m("ui.deleted"), "data-tip": m("ui.uncheck_to_remove_the_binding") }) : null
-      );
-    })
+  const data = editors.get($("group-dialog")).data;
+  setText($("group-key-count"), m("ui.group_selected_key_count", { count: groupSelection.scopes.size }));
+  const keys = groupFilteredKeys();
+  $("group-key-list").replaceChildren(
+    ...(keys.length
+      ? keys.map((key) =>
+          el(
+            "label",
+            {},
+            checkboxControl({
+              input: el("input", {
+                type: "checkbox",
+                value: key.scope,
+                checked: groupSelection.scopes.has(key.scope),
+                onchange: (event) => {
+                  if (event.target.checked) groupSelection.scopes.add(key.scope); else groupSelection.scopes.delete(key.scope);
+                  setText($("group-key-count"), m("ui.group_selected_key_count", { count: groupSelection.scopes.size }));
+                }
+              })
+            }),
+            renderAPIKeyIdentity(key),
+            el("span", {
+              class: "small muted",
+              text:
+                (key.group_ids || []).map((id) => data.groups.find((group) => group.id === id)?.name || id).join("、") ||
+                m("ui.fork_ungrouped")
+            }),
+            key.deleted_at ? el("span", { class: "tag plain", text: m("ui.deleted") }) : null
+          )
+        )
+      : [el("div", { class: "empty", text: m("ui.fork_no_matching_api_keys") })])
   );
 }
 
 function editGroup(group) {
-  const id = group?.id;
   openEditor("group-dialog", "group", (data) => {
-    const current = id ? data.groups.find((entry) => entry.id === id) : null;
-    if (id && !current) throw new UIError(m("ui.fork_this_group_no_longer_exists_close_the_dialog_and_refresh_the_list"));
-    setText($("group-dialog-title"), current ? m("ui.fork_edit_group_value", { v0: current.name || id }) : m("ui.fork_create_group"));
-    $("group-id").value = id || "";
-    setText($("group-save"), current ? m("ui.save") : m("ui.create"));
+    const current = group ? data.groups.find((item) => item.id === group.id) : null;
+    if (group && !current) throw new UIError(m("ui.fork_this_group_no_longer_exists_refresh_the_list"));
+    $("group-id").value = current?.id || "";
     $("group-name").value = current?.name || "";
-    $("group-description").value = current?.description || "";
-    $("group-enabled").checked = current ? current.enabled !== false : true;
-    $("group-routing-mode").value = current?.routing_mode || "ordinary";
-    $("group-rule-search").value = "";
-    $("group-key-search").value = "";
-    const filter = $("group-key-filter");
-    filter.replaceChildren(
-      el("option", { value: "", text: m("ui.fork_all_keys") }),
-      el("option", { value: "__current__", text: m("ui.fork_selected_in_this_group") }),
-      el("option", { value: "__ungrouped__", text: m("ui.fork_ungrouped") }),
-      ...data.groups.map((item) => el("option", { value: item.id, text: displayLabel(item.name || item.id) }))
-    );
-    filter.value = "";
-    const initialScopes = data.keys.filter((key) => id && (key.group_ids || []).includes(id)).map((key) => key.scope);
+    $("group-enabled").checked = !current?.disabled;
+    for (const input of document.querySelectorAll('input[name="group-routing-mode"]'))
+      input.checked = input.value === (current?.routing_mode || "ordinary");
+    $("group-dialog").querySelector(".chooser-key-assignment").open = true;
+    setText($("group-dialog-title"), current ? m("ui.fork_edit_group") : m("ui.fork_create_group"));
     groupSelection = {
-      routeIDs: new Set(current?.route_bindings?.route_ids || []),
-      ...routingEditorState(current?.route_bindings, "group-credential-enabled-only"),
-      keyScopes: new Set(initialScopes)
+      routeIDs: new Set(current?.route_ids || []),
+      ...routingEditorState(current?.rule, "group-credential-enabled-only"),
+      scopes: new Set(data.keys.filter((key) => current && (key.group_ids || []).includes(current.id)).map((key) => key.scope))
     };
+    $("group-rule-search").value = "";
     renderGroupRuleList();
+    $("group-key-search").value = "";
+    renderGroupFilter($("group-key-filter"), data.groups);
+    $("group-key-filter").value = "";
     renderGroupKeyList();
-    return { group: structuredClone(current), scopes: initialScopes };
   });
 }
 
 function editKeyGroups(scopes) {
-  closeHoverTooltip();
-  const cleanScopes = Array.from(new Set((scopes || []).filter(Boolean)));
-  if (!cleanScopes.length) return;
   openEditor("group-picker", "keyGroups", (data) => {
-    const keys = cleanScopes.map((scope) => data.keys.find((entry) => entry.scope === scope)).filter((entry) => entry && !entry.deleted_at);
-    if (!keys.length) throw new UIError(m("ui.this_api_key_no_longer_exists_refresh_the_list"));
-    keyGroupSelection = { scopes: keys.map((entry) => entry.scope) };
+    const keys = scopes.map((scope) => data.keys.find((key) => key.scope === scope && !key.deleted_at));
+    if (!keys.length || keys.some((key) => !key)) throw new UIError(m("ui.fork_a_selected_key_no_longer_exists_refresh_the_list"));
+    keyGroupSelection = {
+      scopes: [...scopes],
+      groups: new Set((keys[0].group_ids || []).filter((id) => keys.every((key) => (key.group_ids || []).includes(id))))
+    };
     setText(
       $("group-picker-identity"),
-      keys.length === 1 ? apiKeyIdentity(keys[0]).text : m("ui.fork_value_api_keys_selected", { v0: keys.length })
+      keys.length === 1 ? apiKeyIdentity(keys[0]).text : m("ui.key_common_groups", { count: keys.length })
     );
-    const list = $("group-picker-list");
-    if (!data.groups.length) {
-      list.replaceChildren(el("div", { class: "empty", text: m("ui.fork_no_groups_created_yet") }));
-      return;
-    }
-    const orderedGroups = pinSelected(
-      new Map(),
-      "groups",
-      data.groups,
-      (group) => group.id,
-      (group) => keys.some((key) => (key.group_ids || []).includes(group.id))
-    );
-    list.replaceChildren(
-      ...orderedGroups.map((group) => {
-        const count = keys.filter((key) => (key.group_ids || []).includes(group.id)).length;
-        const checked = count === keys.length;
-        const indeterminate = count > 0 && count < keys.length;
-        const input = el("input", {
-          type: "checkbox",
-          value: group.id,
-          checked,
-          onchange: () => {
-            input.indeterminate = false;
-            delete input.dataset.mixed;
-          }
-        });
-        if (indeterminate) {
-          input.indeterminate = true;
-          input.dataset.mixed = "true";
-        }
-        return el(
-          "label",
-          {},
-          checkboxControl({ input }),
-          el("span", {}, displayText(group.name || group.id)),
-          group.enabled === false ? el("span", { class: "tag plain", text: m("ui.disabled") }) : null,
-          !groupGrantsAccess(group) ? el("span", { class: "tag warn", text: m("ui.fork_no_credentials") }) : null,
-          indeterminate ? el("span", { class: "muted small", text: count + "/" + keys.length }) : null
-        );
-      })
+    $("group-picker-list").replaceChildren(
+      ...(data.groups.length
+        ? data.groups.map((group) =>
+            el(
+              "label",
+              {},
+              checkboxControl({
+                input: el("input", {
+                  type: "checkbox",
+                  checked: keyGroupSelection.groups.has(group.id),
+                  value: group.id,
+                  onchange: (event) => {
+                    if (event.target.checked) keyGroupSelection.groups.add(group.id); else keyGroupSelection.groups.delete(group.id);
+                  }
+                })
+              }),
+              el("span", { text: displayLabel(group.name || group.id) }),
+              el("span", { class: "small muted", text: groupBindingSummary(group) })
+            )
+          )
+        : [el("div", { class: "empty", text: m("ui.fork_no_groups_create_one_on_the_api_key_groups_tab") })])
     );
   });
 }
@@ -861,13 +803,12 @@ function renderRoutes() {
   $("route-new").disabled = EDITOR_RESOURCES.route.some((name) => resources.admin[name].value === null);
   const routes = resources.admin.routes.value.map((route) => ({
     route,
-    boundKeys: resources.admin.keys.value.filter((key) => key.route_bindings.route_ids.includes(route.id)),
-    boundGroups: (resources.admin.groups.value || []).filter((group) => (group.route_bindings?.route_ids || []).includes(route.id))
+    boundKeys: resources.admin.keys.value.filter((key) => key.route_bindings.route_ids.includes(route.id))
   }));
   renderCollection($("routes-body"), routes, {
     attrs: { class: "event-list settings-card-list", role: "list" },
     empty: m("ui.no_routing_rules"),
-    render: ({ route, boundKeys, boundGroups }) => {
+    render: ({ route, boundKeys }) => {
       const fields = [
         ["model", m("ui.model_access"), m("ui.all_models"), "astroid"],
         ["credential", m("ui.credential_access"), m("ui.fork_no_credentials_authorized"), "key"]
@@ -877,26 +818,16 @@ function renderRoutes() {
         return settingsEntryField(label, settingsChipList(items, fallback));
       });
       const name = route.name || route.id;
-      const groupChips = boundGroups.map((group) => ({
-        text: group.name || group.id,
-        tag: group.enabled === false ? m("ui.disabled") : ""
-      }));
       return settingsCard(
         name,
-        [
-          ...fields,
-          boundGroups.length ? settingsEntryField(m("ui.fork_groups"), settingsChipList(groupChips, "—")) : null,
-          boundKeyField(boundKeys)
-        ].filter(Boolean),
+        [...fields, boundKeyField(boundKeys)],
         () => editRoute(route),
         () =>
           openActionDialog(
             m("ui.delete_routing_rule_value", { v0: name }),
-            boundKeys.length || boundGroups.length
+            boundKeys.length
               ? m("ui.remove_this_rule_from_value_of_these_value_non_deleted_keys_will_have_unrestricted_mo", {
-                  v0: [boundKeys.length ? bindingSummary(boundKeys) : "", boundGroups.length ? groupBindingSummary(boundGroups) : ""]
-                    .filter(Boolean)
-                    .join(" / "),
+                  v0: bindingSummary(boundKeys),
                   v1: route.fully_unrestricted_keys || 0
                 })
               : m("ui.this_action_cannot_be_undone"),
@@ -1242,78 +1173,47 @@ $("group-new").onclick = () => editGroup();
 $("group-rule-search").addEventListener("input", renderGroupRuleList);
 $("group-rule-all").onclick = () => setVisibleRouteChoices("group-dialog", groupSelection, "allow", renderGroupRuleList);
 $("group-rule-deny-all").onclick = () => setVisibleRouteChoices("group-dialog", groupSelection, "deny", renderGroupRuleList);
-$("group-rule-clear").onclick = () => {
-  groupSelection.routeIDs.clear();
-  Object.assign(groupSelection, routingSelection());
-  groupSelection.orderMemo?.clear();
-  renderGroupRuleList();
-};
+$("group-rule-clear").onclick = () => setVisibleRouteChoices("group-dialog", groupSelection, "none", renderGroupRuleList);
 $("group-dialog").addEventListener("close", () => { if (!$("group-dialog").open) groupSelection = null; });
 $("group-key-search").addEventListener("input", renderGroupKeyList);
 $("group-key-filter").addEventListener("change", renderGroupKeyList);
 $("group-key-all").onclick = () => {
-  const editor = editors.get($("group-dialog"));
-  if (!editor) return;
-  for (const key of groupFilteredKeys(editor.data.keys, $("group-id").value, groupSelection.keyScopes)) {
-    if (!key.deleted_at) groupSelection.keyScopes.add(key.scope);
-  }
+  for (const key of groupFilteredKeys()) groupSelection.scopes.add(key.scope);
   renderGroupKeyList();
 };
 $("group-key-none").onclick = () => {
-  const editor = editors.get($("group-dialog"));
-  if (!editor) return;
-  for (const key of groupFilteredKeys(editor.data.keys, $("group-id").value, groupSelection.keyScopes)) {
-    groupSelection.keyScopes.delete(key.scope);
-  }
+  for (const key of groupFilteredKeys()) groupSelection.scopes.delete(key.scope);
   renderGroupKeyList();
 };
 $("group-save").onclick = () =>
-  submitEditor("group-dialog", async (editor) => {
+  submitEditor("group-dialog", async () => {
     const name = $("group-name").value.trim();
     if (!name) throw new UIError(m("ui.fork_enter_a_group_name"));
     const id = $("group-id").value;
-    const description = $("group-description").value.trim();
-    const enabled = $("group-enabled").checked;
-    const routingMode = $("group-routing-mode").value || "ordinary";
-    const bindings = { route_ids: [...groupSelection.routeIDs], ...routingPayload(groupSelection) };
-    validateExclusiveGroupSelection(id, routingMode, bindings, editor.data.groups || []);
-    const scopes = [...groupSelection.keyScopes];
-    const data = { name, description, enabled, routing_mode: routingMode, route_bindings: bindings, scopes };
-    if (id) {
-      const group = editor.initial.group;
-      if (sameScopes(scopes, editor.initial.scopes)) delete data.scopes;
-      if (name === group.name) delete data.name;
-      if (description === (group.description || "")) delete data.description;
-      if (enabled === (group.enabled !== false)) delete data.enabled;
-      if (routingMode === (group.routing_mode || "ordinary")) delete data.routing_mode;
-      const previousBindings = {
-        route_ids: group.route_bindings?.route_ids || [],
-        ...routingPayload(routingSelection(group.route_bindings))
-      };
-      if (JSON.stringify(bindings) === JSON.stringify(previousBindings)) delete data.route_bindings;
-      if (!Object.keys(data).length) return;
-      await mutateAdmin("PATCH", "/groups", { id, ...data });
-    } else { await mutateAdmin("POST", "/groups", data); }
-    notify(id ? m("ui.fork_group_saved") : m("ui.fork_group_created"));
-  });
-
-$("group-picker-save").onclick = () =>
-  submitEditor("group-picker", async (editor) => {
-    const scopes = keyGroupSelection.scopes || [];
-    if (!scopes.length) return;
-    const inputs = Array.from($("group-picker-list").querySelectorAll('input[type="checkbox"]'));
-    const checked = new Set(inputs.filter((input) => input.checked && !input.indeterminate).map((input) => input.value));
-    const unchecked = new Set(inputs.filter((input) => !input.checked && !input.indeterminate).map((input) => input.value));
-    for (const scope of scopes) {
-      const key = editor.data.keys.find((item) => item.scope === scope);
-      if (!key) continue;
-      const next = new Set(key.group_ids || []);
-      for (const id of checked) next.add(id);
-      for (const id of unchecked) next.delete(id);
-      await writeAdmin("PUT", "/keys/groups", { scope, group_ids: [...next] });
+    const data = {
+      name,
+      disabled: !$("group-enabled").checked,
+      routing_mode: document.querySelector('input[name="group-routing-mode"]:checked')?.value || "ordinary",
+      route_ids: [...groupSelection.routeIDs],
+      rule: routingPayload(groupSelection),
+      scopes: [...groupSelection.scopes]
+    };
+    if (!data.disabled && data.routing_mode === "exclusive") {
+      const editor = editors.get($("group-dialog")).data;
+      for (const key of editor.keys.filter((item) => groupSelection.scopes.has(item.scope)))
+        validateExclusiveGroupSelection([
+          ...editor.groups.filter((item) => item.id !== id && (key.group_ids || []).includes(item.id)),
+          data
+        ]);
     }
-    await loadDataGroup(false, "configuration", true);
-    renderPage();
-    notify(scopes.length === 1 ? m("ui.fork_api_key_groups_saved") : m("ui.fork_saved_groups_for_value_api_keys", { v0: scopes.length }));
+    await mutateAdmin(id ? "PATCH" : "POST", "/groups", id ? { id, ...data } : data);
+    notify(m("ui.fork_group_saved"));
   });
-$("group-picker").addEventListener("close", () => { if (!$("group-picker").open) keyGroupSelection = { scopes: [] }; });
+$("group-picker-save").onclick = () =>
+  submitEditor("group-picker", async () => {
+    validateExclusiveGroupSelection(
+      editors.get($("group-picker")).data.groups.filter((group) => keyGroupSelection.groups.has(group.id))
+    );
+    await mutateAdmin("PUT", "/keys/groups", { scopes: keyGroupSelection.scopes, group_ids: [...keyGroupSelection.groups] });
+    notify(m("ui.fork_api_key_groups_saved"));
+  });

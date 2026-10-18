@@ -189,7 +189,7 @@ function renderKeys() {
       );
       const groupChips = (view.group_ids || []).map((id, index) => {
         const group = (groups || []).find((entry) => entry.id === id);
-        const disabledGroup = group ? group.enabled === false : false;
+        const disabledGroup = group ? Boolean(group.disabled) : false;
         const unauthorizedGroup = group ? !groupGrantsAccess(group) : false;
         return {
           text: view.group_names?.[index] || group?.name || id,
