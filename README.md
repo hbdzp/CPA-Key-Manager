@@ -3,13 +3,15 @@
   <p><strong><a href="https://github.com/router-for-me/CLIProxyAPI">CLIProxyAPI</a> 下游 API Key 计费、团队分组三态号池、分模型订阅额度与单账号并发管理插件。</strong></p>
   <p>
     <a href="https://github.com/hbdzp/CPA-Key-Manager/releases/latest"><img src="https://img.shields.io/github/v/release/hbdzp/CPA-Key-Manager?label=release" alt="Latest release"></a>
-    <a href="https://github.com/hbdzp/CPA-Key-Manager/actions/workflows/check.yml"><img src="https://img.shields.io/github/workflows/status/hbdzp/CPA-Key-Manager/check.yml?label=CI" alt="CI status"></a>
+    <a href="https://github.com/hbdzp/CPA-Key-Manager/actions/workflows/check.yml"><img src="https://github.com/hbdzp/CPA-Key-Manager/actions/workflows/check.yml/badge.svg" alt="CI status"></a>
     <img src="https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-blue" alt="Platforms: Windows, macOS, and Linux">
     <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License"></a>
   </p>
   <p><a href="./README.en.md">English</a> · <strong>简体中文</strong></p>
 </div>
 <img src="images/example.png" alt="cpa-key-billing example" width="100%" />
+
+**插件 ID：`cpa-key-billing` · 商店名称：API Key 计费与团队管理 · 发布仓库：[hbdzp/CPA-Key-Manager](https://github.com/hbdzp/CPA-Key-Manager)**
 
 ## 功能特性
 
@@ -66,12 +68,39 @@ flowchart TB
 
 ## 环境要求
 
-- CLIProxyAPI `7.3.7` 或更高版本，建议使用最新版本
+- CLIProxyAPI `7.3.7` 或更高版本（v8 同样完全兼容），建议使用最新版本
 - 使用支持插件的 CLIProxyAPI 构建，不要使用 `no-plugin` 版本
 
 ## 安装
 
-### 脚本一键安装
+支持 Linux `amd64` / `arm64`、macOS `amd64` / `arm64`、Windows `amd64` / `arm64`。
+
+### 方式一：插件商店安装（推荐）
+
+把本仓库的 `registry.json` 添加为第三方插件源（**Raw registry URL**）：
+
+```yaml
+plugins:
+  enabled: true
+  dir: "plugins"
+  store-sources:
+    - "https://raw.githubusercontent.com/hbdzp/CPA-Key-Manager/main/registry.json"
+```
+
+也可以在管理面板中添加：
+- **CPAMC**：**配置面板 → 可视化 → 高级与实验 → 插件 → 第三方插件源**，填入 `https://raw.githubusercontent.com/hbdzp/CPA-Key-Manager/main/registry.json`
+- **CPAMP**：**配置面板 / 配置文件 → 可视化 → 系统配置 → 插件商店来源**，追加上述 URL
+
+保存配置后，可在管理面板的**插件商店**中搜索 `cpa-key-billing` 或「API Key 计费与团队管理」（作者 `hbdzp`）直接一键安装；或通过管理 API 安装（本仓库源对应的固定 `source_id` 为 `source-f6b85975fe67`）：
+
+```bash
+curl -X POST "http://127.0.0.1:8317/v8/management/plugins/store/cpa-key-billing/install?source=source-f6b85975fe67" \
+  -H "Authorization: Bearer <管理密钥>"
+```
+
+CPA 会自动下载最新 Release 中对应平台的 zip 包、校验 `checksums.txt` 的 SHA256 并加载插件。
+
+### 方式二：脚本一键安装
 
 在 CLIProxyAPI 根目录运行。macOS 和 Linux 使用：
 
@@ -87,9 +116,9 @@ irm https://raw.githubusercontent.com/hbdzp/CPA-Key-Manager/main/install.ps1 | i
 
 安装脚本会将插件安装到当前目录的 `plugins/`。安装或升级完成后需要重启 CLIProxyAPI。
 
-### 手动安装 / 预编译产物
+### 方式三：手动下载 Release 预编译包
 
-可直接从本仓库 `dist/` 目录或 [Releases](https://github.com/hbdzp/CPA-Key-Manager/releases/latest) 获取对应平台的动态库，放入 CLIProxyAPI 的 `plugins/` 目录：
+从 [Releases](https://github.com/hbdzp/CPA-Key-Manager/releases/latest) 下载对应系统和架构的压缩包（`.zip` 或 `.tar.gz`），解压到 CLIProxyAPI 的 `plugins/` 目录：
 
 ```text
 plugins/cpa-key-billing.so       # Linux (amd64 / arm64)
@@ -97,9 +126,9 @@ plugins/cpa-key-billing.dylib    # macOS (amd64 / arm64)
 plugins/cpa-key-billing.dll      # Windows (amd64 / arm64)
 ```
 
-### 从源码编译
+### 方式四：从源码编译
 
-需要 Go `1.24+` 并开启 `CGO_ENABLED=1` 及 `-tags cshared -buildmode=c-shared`：
+需要 Go `1.24+` 与 C 编译器（`CGO_ENABLED=1`）：
 
 ```sh
 # Linux (amd64)
@@ -119,6 +148,8 @@ CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC=x86_64-w64-mingw32-gcc \
   -tags cshared -buildmode=c-shared \
   -o dist/cpa-key-billing.dll ./cmd/cpa-key-billing
 ```
+
+**自动化发布**：推送 `v*` 版本标签（如 `git tag v1.4.1 && git push origin v1.4.1`）或在 GitHub Actions 页面手动运行 `Release` 工作流，GitHub Actions 会自动编译全部 6 个平台产物（`.zip` + `.tar.gz` + `checksums.txt`）并发布 GitHub Release，插件商店用户可自动检测并升级。
 
 ## 配置说明
 

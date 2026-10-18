@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "plugins": [
+    {
+      "id": "cpa-key-billing",
+      "name": "API Key 计费与团队管理",
+      "description": "下游 API Key 计费、团队分组三态号池（普通/独占/公共）、分模型订阅额度与上游单账号并发管理插件。",
+      "author": "hbdzp",
+      "version": "1.4.1",
+      "repository": "https://github.com/hbdzp/CPA-Key-Manager",
+      "homepage": "https://github.com/hbdzp/CPA-Key-Manager",
+      "license": "MIT",
+      "tags": [
+        "api-key",
+        "apikey",
+        "team",
+        "团队",
+        "密钥",
+        "分组",
+        "权限",
+        "access-control",
+        "billing",
+        "计费",
+        "quota",
+        "额度",
+        "subscription",
+        "订阅",
+        "routing",
+        "路由",
+        "accounts",
+        "concurrency",
+        "并发"
+      ]
+    }
+  ]
+}

@@ -3,13 +3,15 @@
   <p><strong>Per-key billing, team group routing pools, model-scoped quotas, and per-account concurrency management for <a href="https://github.com/router-for-me/CLIProxyAPI">CLIProxyAPI</a>.</strong></p>
   <p>
     <a href="https://github.com/hbdzp/CPA-Key-Manager/releases/latest"><img src="https://img.shields.io/github/v/release/hbdzp/CPA-Key-Manager?label=release" alt="Latest release"></a>
-    <a href="https://github.com/hbdzp/CPA-Key-Manager/actions/workflows/check.yml"><img src="https://img.shields.io/github/workflows/status/hbdzp/CPA-Key-Manager/check.yml?label=CI" alt="CI status"></a>
+    <a href="https://github.com/hbdzp/CPA-Key-Manager/actions/workflows/check.yml"><img src="https://github.com/hbdzp/CPA-Key-Manager/actions/workflows/check.yml/badge.svg" alt="CI status"></a>
     <img src="https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-blue" alt="Platforms: Windows, macOS, and Linux">
     <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License"></a>
   </p>
   <p><strong>English</strong> · <a href="./README.md">简体中文</a></p>
 </div>
 <img src="images/example.png" alt="CPA Key Billing dashboard" width="100%" />
+
+**Plugin ID: `cpa-key-billing` · Store Name: API Key 计费与团队管理 · Repository: [hbdzp/CPA-Key-Manager](https://github.com/hbdzp/CPA-Key-Manager)**
 
 ## Features
 
@@ -38,10 +40,33 @@
 
 ## Requirements
 
-- CLIProxyAPI **7.3.7 or later**.
+- CLIProxyAPI **7.3.7 or later** (compatible with v8).
 - A CLIProxyAPI build with plugin support (`no-plugin` builds cannot load this plugin).
 
 ## Installation
+
+Supports Linux `amd64` / `arm64`, macOS `amd64` / `arm64`, and Windows `amd64` / `arm64`.
+
+### Option 1: Plugin Store (Recommended)
+
+Add this repository's `registry.json` to `plugins.store-sources` in your `config.yaml`:
+
+```yaml
+plugins:
+  enabled: true
+  dir: "plugins"
+  store-sources:
+    - "https://raw.githubusercontent.com/hbdzp/CPA-Key-Manager/main/registry.json"
+```
+
+Then install from the management panel's **Plugin Store** or via the management API (`source-f6b85975fe67` is the deterministic `source_id` for the URL above):
+
+```bash
+curl -X POST "http://127.0.0.1:8317/v8/management/plugins/store/cpa-key-billing/install?source=source-f6b85975fe67" \
+  -H "Authorization: Bearer <MANAGEMENT_KEY>"
+```
+
+### Option 2: Installer Script
 
 Run the installer from your CLIProxyAPI directory.
 
@@ -57,7 +82,9 @@ On Windows, stop CLIProxyAPI first, then run this in PowerShell:
 irm https://raw.githubusercontent.com/hbdzp/CPA-Key-Manager/main/install.ps1 | iex
 ```
 
-For manual installation, copy the prebuilt library from `dist/` or download the archive for your platform from [Releases](https://github.com/hbdzp/CPA-Key-Manager/releases/latest) into CLIProxyAPI’s `plugins/` directory:
+### Option 3: Manual Release Download
+
+Download the archive for your platform from [Releases](https://github.com/hbdzp/CPA-Key-Manager/releases/latest) and extract the library into CLIProxyAPI’s `plugins/` directory:
 
 ```text
 plugins/cpa-key-billing.so       # Linux (amd64 / arm64)
